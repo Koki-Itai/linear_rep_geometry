@@ -17,7 +17,7 @@ RANDOM_TXT_PATH="/home/itai/research/linear_rep_geometry/data/ValueNet/schwartz/
 echo "=== Create Matrices ... ==="
 python store_matrices.py \
     --model_path $MODEL_PATH \
-    --counterfactual_pair_COUTER_FACTUAL_TXT_DIR $COUTER_FACTUAL_TXT_DIR \
+    --counterfactual_pair $COUTER_FACTUAL_TXT_DIR \
     --matrices_save_dir $SAVE_DIR \
     --num_sample $NUM_SAMPLE \
     --prompt_type $PROMPT_TYPE
