@@ -30,34 +30,32 @@ sns.set_theme(
 
 def initialize_model(model_path=None):
     if model_path is None:
-        # default
         model_path = "meta-llama/Llama-3.2-3B-Instruct"
 
+    global tokenizer, model, base_model
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_path, use_fast=False)
     model = transformers.AutoModelForCausalLM.from_pretrained(
         model_path,
-        device_map={"": device},
+        device_map="auto",
     )
-    model = model.to(device)
-
-    return tokenizer, model
-
+    
+    base_model = model
+    
+    num_gpus = torch.cuda.device_count()
+    if num_gpus > 1:
+        model = DataParallel(model)
+    
+    model.to('cuda')
+    return tokenizer, model, base_model
 
 def load_model(model_path=None):
-    global tokenizer, model
-    tokenizer, model = initialize_model(model_path)
+    global tokenizer, model, base_model
+    tokenizer, model, base_model = initialize_model(model_path)
 
 
 tokenizer = None
 model = None
-
-# MODEL_PATH = "meta-llama/Llama-3.2-3B-Instruct"
-# tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_PATH, use_fast=False)
-# model = transformers.AutoModelForCausalLM.from_pretrained(
-#     MODEL_PATH,
-#     device_map={"": device},
-# )
-# model = model.to(device)
+base_model = None
 
 
 ## get indices of counterfactual pairs
@@ -137,18 +135,20 @@ model = DataParallel(model)
 
 
 def get_embeddings(text_batch, batch_size=4):
-    """データパラレルによりGPU効率をあげる実装"""
-    global model, tokenizer
+    global model, tokenizer, base_model
     if model is None or tokenizer is None:
         load_model()
+
+    num_gpus = torch.cuda.device_count()
+    effective_batch_size = batch_size * num_gpus if num_gpus > 1 else batch_size
 
     device = next(model.parameters()).device
     tokenizer.pad_token = tokenizer.eos_token
     all_embeddings = []
 
-    total_batches = (len(text_batch) + batch_size - 1) // batch_size
+    total_batches = (len(text_batch) + effective_batch_size - 1) // effective_batch_size
     pbar = tqdm(
-        range(0, len(text_batch), batch_size),
+        range(0, len(text_batch), effective_batch_size),
         total=total_batches,
         desc="Processing embeddings",
         unit="batch",
@@ -196,87 +196,6 @@ def get_embeddings(text_batch, batch_size=4):
 
     combined_embeddings = torch.cat(all_embeddings, dim=0).to(device)
     return combined_embeddings
-
-
-# def get_embeddings(text_batch, batch_size=4):
-#     """
-#     Get embeddings for text sequences in batches with progress visualization.
-
-#     Args:
-#         text_batch: List of input texts
-#         batch_size: Number of texts to process at once
-
-#     Returns:
-#         torch.Tensor: Embeddings for all input texts
-#     """
-#     global model, tokenizer
-#     if model is None or tokenizer is None:
-#         load_model()
-
-#     device = next(model.parameters()).device
-#     tokenizer.pad_token = tokenizer.eos_token
-#     all_embeddings = []
-
-#     # Calculate total number of batches
-#     total_batches = (len(text_batch) + batch_size - 1) // batch_size
-
-#     # Create progress bar
-#     pbar = tqdm(
-#         range(0, len(text_batch), batch_size),
-#         total=total_batches,
-#         desc="Processing embeddings",
-#         unit="batch",
-#     )
-#     try:
-#         for i in pbar:
-#             batch_texts = text_batch[i : i + batch_size]
-
-#             # Update progress bar with batch size info
-#             pbar.set_postfix(
-#                 {
-#                     "batch_size": len(batch_texts),
-#                     "processed": min(i + batch_size, len(text_batch)),
-#                 }
-#             )
-
-#             encoded = tokenizer(
-#                 batch_texts,
-#                 padding=True,
-#                 truncation=True,
-#                 return_tensors="pt",
-#                 return_attention_mask=True,
-#                 max_length=128,
-#             )
-
-#             input_ids = encoded.input_ids.to(device)
-#             attention_mask = encoded.attention_mask.to(device)
-
-#             torch.cuda.empty_cache()
-
-#             with torch.no_grad():
-#                 outputs = model(
-#                     input_ids, attention_mask=attention_mask, output_hidden_states=True
-#                 )
-
-#                 last_hidden_state = outputs.hidden_states[-1]
-#                 masked_hidden_state = last_hidden_state * attention_mask.unsqueeze(-1)
-#                 sum_hidden_state = masked_hidden_state.sum(dim=1)
-#                 count_tokens = attention_mask.sum(dim=1).unsqueeze(-1)
-#                 batch_embeddings = sum_hidden_state / count_tokens
-
-#                 all_embeddings.append(batch_embeddings.cpu())
-
-#                 del outputs, last_hidden_state, masked_hidden_state, sum_hidden_state
-#                 torch.cuda.empty_cache()
-
-#     except RuntimeError as e:
-#         if "out of memory" in str(e):
-#             print(f"WARNING: Out of memory error occurred. Try reducing batch_size (current: {batch_size})")
-#             torch.cuda.empty_cache()
-#         raise e
-
-#     combined_embeddings = torch.cat(all_embeddings, dim=0).to(device)
-#     return combined_embeddings
 
 
 ####### Experiment 1: subspace #######

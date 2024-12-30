@@ -1,3 +1,14 @@
+# Linear Representation of Personal Values in Large Language Models
+
+## Data
+Schwartzの価値体系に基づいた
+
+## Requirement
+
+## Experiments
+
+<details>
+<summary><h1>README.md (kihoPark/linear_rep_geometry)</h1></summary>
 # linear_rep_geometry
 In our paper, we formalize the linear representation hypothesis of large language models, and define a *causal inner product* that respects the semantic structure of language.
 
@@ -19,3 +30,5 @@ Make a directory `matrices` and run [`store_matrices.py`](store_matrices.py) fir
 - [**`3_measurement.ipynb`**](3_measurement.ipynb): We confirm that the concept direction acts as a linear probe
 - [**`4_intervention.ipynb`**](4_intervention.ipynb): We confirm that the embedding representation changes the target concept, without changing off-target concepts.
 - [**`5_sanity_check.ipynb`**](5_sanity_check.ipynb): We verify that the causal inner product we find satisfies the uncorrelatedness condition in Assumption 3.3.
+
+</details>

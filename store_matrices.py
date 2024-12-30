@@ -53,24 +53,24 @@ def main():
     args = parse_args()
 
     device = torch.device("cuda:0")
-
     os.makedirs(args.matrices_save_dir, exist_ok=True)
 
     # init and load model
     print(f"Loading model: {args.model_path}")
-    lrg.load_model(args.model_path)
+    global tokenizer, model
+    tokenizer, model, base_model = lrg.initialize_model(args.model_path)
 
     # load unembedding vectors
     print("load unembdding vectors ...")
     with torch.inference_mode():
         model = lrg.model
-        gamma = model.lm_head.weight.detach() # Unembedding行列：[語彙サイズ × 隠れ層の次元数]の形状
+        gamma = base_model.lm_head.weight.detach() # Unembedding行列：[語彙サイズ × 隠れ層の次元数]の形状
         W, d = gamma.shape # W: 語彙サイズ，d: 隠れ層の次元数
         # 行列の中心化(行列の要素を原点に整列)
         gamma_bar = torch.mean(gamma, dim=0)
         centered_gamma = gamma - gamma_bar
 
-    # 共分散行列の計算: Unembeddin行列の分布構造のキャプチャ
+    # 共分散行列の計算: Unembedding行列の分布構造のキャプチャ
     print("compute Cov(gamma) and transform gamma to g ...")
     Cov_gamma = centered_gamma.T @ centered_gamma / W
 

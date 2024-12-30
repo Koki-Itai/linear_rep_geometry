@@ -12,7 +12,7 @@ SAVE_DIR="tmp_matrices"
 COUTER_FACTUAL_TXT_DIR="/home/itai/research/linear_rep_geometry/data/ValueNet/schwartz/${CONCEPT_DIRECTION}/${NORM_TYPE}"
 ANALYZED_FIGURE_DIR="/home/itai/research/linear_rep_geometry/figures/${MODEL_NAME}/${DATASET_TYPE}/${CONCEPT_DIRECTION}/${NORM_TYPE}/${PROMPT_TYPE}"
 GENERATION_OUTPUT_PATH="/home/itai/research/linear_rep_geometry/generated/${MODEL_NAME}/${DATASET_TYPE}/${CONCEPT_DIRECTION}/${NORM_TYPE}/${PROMPT_TYPE}"
-RANDOM_TXT_PATH="/home/itai/research/linear_rep_geometry/data/ValueNet/schwartz/random_pairs/${NORM_TYPE}"
+RANDOM_TXT_PATH="/home/itai/research/linear_rep_geometry/data/ValueNet/schwartz/random_pairs/${NORM_TYPE}/random_1000_pairs.txt"
 
 echo "=== Create Matrices ... ==="
 python store_matrices.py \
