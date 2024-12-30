@@ -9,7 +9,7 @@ PROMPT_TYPE="bare"  # [bare, reflection, analysis, implicit, explicit]
 MODEL_NAME=$(echo $MODEL_PATH | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
 NUM_SAMPLE=1000
 SAVE_DIR="tmp_matrices"
-TXT_DIR="/home/itai/research/ValueNet/schwartz/${CONCEPT_DIRECTION}/${NORM_TYPE}"
+TXT_DIR="/home/itai/research/linear_rep_geometry/data/ValueNet/schwartz/${CONCEPT_DIRECTION}/${NORM_TYPE}"
 ANALYZED_FIGURE_DIR="/home/itai/research/linear_rep_geometry/figures/${MODEL_NAME}/${DATASET_TYPE}/${CONCEPT_DIRECTION}/${NORM_TYPE}/${PROMPT_TYPE}"
 
 echo "=== Create Matrices ... ==="
