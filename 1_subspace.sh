@@ -12,7 +12,7 @@ SAVE_DIR="tmp_matrices"
 COUTER_FACTUAL_TXT_DIR="/home/itai/research/linear_rep_geometry/data/ValueNet/schwartz/${CONCEPT_DIRECTION}/${NORM_TYPE}"
 ANALYZED_FIGURE_DIR="/home/itai/research/linear_rep_geometry/figures/${MODEL_NAME}/${DATASET_TYPE}/${CONCEPT_DIRECTION}/${NORM_TYPE}/${PROMPT_TYPE}"
 GENERATION_OUTPUT_PATH="/home/itai/research/linear_rep_geometry/generated/${MODEL_NAME}/${DATASET_TYPE}/${CONCEPT_DIRECTION}/${NORM_TYPE}/${PROMPT_TYPE}"
-RANDOM_TXT_PATH="/home/itai/research/linear_rep_geometry/data/ValueNet/schwartz/random_pairs/${NORM_TYPE}"
+RANDOM_TXT_PATH="/home/itai/research/linear_rep_geometry/data/ValueNet/schwartz/random_pairs/${NORM_TYPE}/random_1000_pairs.txt"
 
 echo "=== Create Matrices ... ==="
 python store_matrices.py \
@@ -25,6 +25,7 @@ python store_matrices.py \
 echo "=== Analyze Subspace ... ==="
 python 1_subspace.py \
     --matrices_path $SAVE_DIR \
+    --model_path $MODEL_PATH \
     --num_sample $NUM_SAMPLE \
     --analyzed_figure_path $ANALYZED_FIGURE_DIR \
     --prompt_type $PROMPT_TYPE \

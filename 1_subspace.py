@@ -11,7 +11,7 @@ from tqdm import tqdm
 from torch import nn
 from transformers import PreTrainedTokenizer
 from typing import List, Dict, Any
-
+import transformers
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -31,6 +31,8 @@ def parse_args():
         default=100,
         help="Maximum number of tokens to generate",
     )
+    parser.add_argument("--model_path", type=str)
+    
     return parser.parse_args()
 
 
@@ -48,56 +50,82 @@ def get_random_pairs(filepath: str, num_samples: int = 1000) -> List[List[str]]:
 def generate_text(
     model: nn.Module,
     tokenizer: PreTrainedTokenizer,
-    prompt: str,
-    max_new_tokens: int = 100
-) -> str:
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    prompts: List[str],
+    max_new_tokens: int = 100,
+    batch_size: int = 16
+) -> List[str]:
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    
+    tokenizer.padding_side = 'left'
+    generated_texts = []
+    
+    for i in tqdm(range(0, len(prompts), batch_size), desc="Generating texts", total=len(prompts)//batch_size + bool(len(prompts)%batch_size)):
+        if i > 0:
+            break
+        batch_prompts = prompts[i:i + batch_size]
+        inputs = tokenizer(
+            batch_prompts, 
+            return_tensors="pt", 
+            padding=True, 
+            truncation=True
+        ).to(model.device)
 
-    with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            num_return_sequences=1,
-            pad_token_id=tokenizer.eos_token_id,
-            do_sample=True,
-            temperature=0.7,
-        )
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                num_return_sequences=1,
+                pad_token_id=tokenizer.pad_token_id,
+                do_sample=True,
+                temperature=0.7,
+            )
 
-    generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    generated_text = generated_text[
-        len(tokenizer.decode(inputs.input_ids[0], skip_special_tokens=True)) :
-    ]
-
-    return generated_text.strip()
-
+        decoded_outputs = tokenizer.batch_decode(outputs, skip_special_tokens=True)
+        decoded_inputs = tokenizer.batch_decode(inputs.input_ids, skip_special_tokens=True)
+        
+        batch_generated = [
+            output[len(input_text):].strip()
+            for output, input_text in zip(decoded_outputs, decoded_inputs)
+        ]
+        generated_texts.extend(batch_generated)
+    
+    return generated_texts
 
 def save_generation_results(
     pairs: List[List[str]],
     model: nn.Module,
     tokenizer: PreTrainedTokenizer,
     output_path: str,
-    max_new_tokens: int = 100
+    max_new_tokens: int = 100,
+    batch_size: int = 8
 ) -> None:
-    results = []
-
-    for concept_text, non_concept_text in tqdm(pairs, desc="Generating responses"):
-        generation_result = {
-            "concept_text": concept_text,
-            "non_concept_text": non_concept_text,
-            "generated_text_concept": generate_text(
-                model, tokenizer, concept_text, max_new_tokens
-            ),
-            "generated_text_non_concept": generate_text(
-                model, tokenizer, non_concept_text, max_new_tokens
-            ),
+    concept_texts = [pair[0] for pair in pairs]
+    non_concept_texts = [pair[1] for pair in pairs]
+    
+    generated_concept_texts = generate_text(
+        model, tokenizer, concept_texts, max_new_tokens, batch_size
+    )
+    generated_non_concept_texts = generate_text(
+        model, tokenizer, non_concept_texts, max_new_tokens, batch_size
+    )
+    
+    results = [
+        {
+            "concept_text": c_text,
+            "non_concept_text": nc_text,
+            "generated_text_concept": gc_text,
+            "generated_text_non_concept": gnc_text,
         }
-        results.append(generation_result)
+        for c_text, nc_text, gc_text, gnc_text in zip(
+            concept_texts, non_concept_texts, 
+            generated_concept_texts, generated_non_concept_texts
+        )
+    ]
 
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
-
 
 if __name__ == "__main__":
     args = parse_args()
@@ -115,6 +143,7 @@ if __name__ == "__main__":
     device = torch.device("cuda:0")
 
     # Load model and tokenizer from linear_rep_geometry
+    lrg.load_model(model_path=args.model_path)
     model = lrg.model
     tokenizer = lrg.tokenizer
 

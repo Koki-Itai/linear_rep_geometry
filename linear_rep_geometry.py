@@ -48,8 +48,8 @@ def load_model(model_path=None):
     tokenizer, model = initialize_model(model_path)
 
 
-tokenizer = None
-model = None
+# tokenizer = None
+# model = None
 
 # MODEL_PATH = "meta-llama/Llama-3.2-3B-Instruct"
 # tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_PATH, use_fast=False)
@@ -133,7 +133,7 @@ def concept_direction(base_sequences, target_sequences):
     return concept_vector, diff_vectors
 
 
-model = DataParallel(model)
+# model = DataParallel(model)
 
 
 def get_embeddings(text_batch, batch_size=4):
