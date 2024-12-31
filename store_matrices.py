@@ -40,7 +40,11 @@ def parse_args():
         required=True,
         help="Directory to save output matrices",
     )
-    parser.add_argument("--prompt_type", type=str, required=True)
+    parser.add_argument(
+        "--prompt_type", 
+        type=str,
+        required=True
+    )
 
     return parser.parse_args()
 

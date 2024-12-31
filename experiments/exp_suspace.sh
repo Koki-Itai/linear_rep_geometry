@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Setup
+bash /home/itai/research/linear_rep_geometry/setup.sh
+
+# Config
 MODEL_PATHS=("meta-llama/Llama-3.2-3B-Instruct" "meta-llama/Llama-3.1-8B-Instruct" "meta-llama/Llama-2-7b-hf")
 DATASET_TYPES=("valuenet")
 CONCEPT_DIRECTIONS=("pos2neg" "pos2neutral")

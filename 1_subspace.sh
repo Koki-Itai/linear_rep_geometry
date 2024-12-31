@@ -9,13 +9,15 @@ PROMPT_TYPE="bare"  # [bare, reflection, analysis, implicit, explicit]
 MODEL_NAME=$(echo $MODEL_PATH | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
 NUM_SAMPLE=1000
 SAVE_DIR="tmp_matrices"
-TXT_DIR="/home/itai/research/ValueNet/schwartz/${CONCEPT_DIRECTION}/${NORM_TYPE}"
+COUTER_FACTUAL_TXT_DIR="/home/itai/research/linear_rep_geometry/data/ValueNet/schwartz/${CONCEPT_DIRECTION}/${NORM_TYPE}"
 ANALYZED_FIGURE_DIR="/home/itai/research/linear_rep_geometry/figures/${MODEL_NAME}/${DATASET_TYPE}/${CONCEPT_DIRECTION}/${NORM_TYPE}/${PROMPT_TYPE}"
+GENERATION_OUTPUT_PATH="/home/itai/research/linear_rep_geometry/generated/${MODEL_NAME}/${DATASET_TYPE}/${CONCEPT_DIRECTION}/${NORM_TYPE}/${PROMPT_TYPE}"
+RANDOM_TXT_PATH="/home/itai/research/linear_rep_geometry/data/ValueNet/schwartz/random_pairs/${NORM_TYPE}/random_1000_pairs.txt"
 
 echo "=== Create Matrices ... ==="
 python store_matrices.py \
     --model_path $MODEL_PATH \
-    --pair_txt_dir $TXT_DIR \
+    --counterfactual_pair $COUTER_FACTUAL_TXT_DIR \
     --matrices_save_dir $SAVE_DIR \
     --num_sample $NUM_SAMPLE \
     --prompt_type $PROMPT_TYPE
@@ -23,6 +25,9 @@ python store_matrices.py \
 echo "=== Analyze Subspace ... ==="
 python 1_subspace.py \
     --matrices_path $SAVE_DIR \
+    --model_path $MODEL_PATH \
     --num_sample $NUM_SAMPLE \
     --analyzed_figure_path $ANALYZED_FIGURE_DIR \
-    --prompt_type $PROMPT_TYPE
+    --prompt_type $PROMPT_TYPE \
+    --random_txt_path $RANDOM_TXT_PATH \
+    --generation_output_path $GENERATION_OUTPUT_PATH
