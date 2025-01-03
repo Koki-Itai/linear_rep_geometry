@@ -1,15 +1,15 @@
-import transformers
-import torch
+import json
+import os
+import random
+
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
-import matplotlib.pyplot as plt
+import torch
+import transformers
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-import matplotlib.gridspec as gridspec
-import json
 from tqdm import tqdm
-import random
-import os
-from torch.nn import DataParallel
 
 random.seed(42)
 np.random.seed(42)
@@ -42,8 +42,7 @@ def initialize_model(model_path=None, device_id=0):
         )
     else:
         model = transformers.AutoModelForCausalLM.from_pretrained(
-            model_path,
-            device_map={"": device}
+            model_path, device_map={"": device}
         )
         model = model.to(device)
 
@@ -72,7 +71,7 @@ def get_counterfactual_pairs(filename, prompt_type, num_sample=1000):
         )
     template = prompt_templates[prompt_type]
 
-    with open(filename, "r") as f:
+    with open(filename) as f:
         lines = f.readlines()
 
     if len(lines) > num_sample:
@@ -387,24 +386,30 @@ def show_histogram_LOO(
 
 
 ####### Experiment 2: heatmap #######
-def draw_heatmaps(data_matrices, concept_labels, save_dir="figures", cmap="PiYG", fig_name="three_heatmaps"):
+def draw_heatmaps(
+    data_matrices,
+    concept_labels,
+    save_dir="figures",
+    cmap="PiYG",
+    fig_name="three_heatmaps",
+):
     num_concepts = len(concept_labels)
-    
+
     fig = plt.figure(figsize=(14, 8.5))
     gs = gridspec.GridSpec(2, 3, wspace=0.2)
-    
+
     # Calculate global min and max for consistent color scaling
     vmin = min([data.min() for data in data_matrices])
     vmax = max([data.max() for data in data_matrices])
-    
+
     # Calculate x-axis ticks dynamically
     num_xticks = min(9, num_concepts)  # Limit number of ticks for readability
     ticks = list(range(0, num_concepts, max(1, num_concepts // num_xticks)))
     labels = [str(i + 1) for i in ticks]
-    
+
     # Create y-axis ticks
     yticks = list(range(num_concepts))
-    
+
     # Create the three subplots
     ax_left = plt.subplot(gs[0:2, 0:2])
     im = ax_left.imshow(data_matrices[0], cmap=cmap, vmin=vmin, vmax=vmax)
@@ -413,29 +418,29 @@ def draw_heatmaps(data_matrices, concept_labels, save_dir="figures", cmap="PiYG"
     ax_left.set_yticks(yticks)
     ax_left.set_yticklabels(concept_labels)
     ax_left.set_title(r"$M = \mathrm{Cov}(\gamma)^{-1}$")
-    
+
     ax_top_right = plt.subplot(gs[0, 2])
     im = ax_top_right.imshow(data_matrices[1], cmap=cmap, vmin=vmin, vmax=vmax)
     ax_top_right.set_xticks([])
     ax_top_right.set_yticks([])
     ax_top_right.set_title(r"$M = I_d$")
-    
+
     ax_bottom_right = plt.subplot(gs[1, 2])
     im = ax_bottom_right.imshow(data_matrices[2], cmap=cmap, vmin=vmin, vmax=vmax)
     ax_bottom_right.set_xticks([])
     ax_bottom_right.set_yticks([])
     ax_bottom_right.set_title(r"Random $M$")
-    
+
     # Add colorbar
     divider = make_axes_locatable(ax_left)
     cax = divider.append_axes("right", size="5%", pad=0.2)
     cbar = plt.colorbar(im, cax=cax, orientation="vertical")
-    
+
     plt.tight_layout()
-    
+
     # Create save directory if it doesn't exist
     os.makedirs(save_dir, exist_ok=True)
-    
+
     # Save the figure
     save_path = os.path.join(save_dir, f"{fig_name}.png")
     print(f"{save_path=}")
@@ -449,7 +454,7 @@ def get_lambda_pairs(filename, num_eg=20):
     lambdas_1 = []
 
     count = 0
-    with open(filename, "r", encoding="utf-8") as f:
+    with open(filename, encoding="utf-8") as f:
         lines = f.readlines()
         # Data Sampling
         if len(lines) > 1000:

@@ -1,18 +1,18 @@
-import logging
-import warnings
-import torch
-import linear_rep_geometry as lrg
-import random
-from datetime import datetime
-import os
 import argparse
 import json
-from tqdm import tqdm
-from torch import nn
-from transformers import PreTrainedTokenizer
-from typing import List, Dict, Any
-import transformers
+import logging
+import os
+import random
 import re
+import warnings
+
+import torch
+from torch import nn
+from tqdm import tqdm
+from transformers import PreTrainedTokenizer
+
+import linear_rep_geometry as lrg
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -24,10 +24,14 @@ def parse_args():
     parser.add_argument("--prompt_type", type=str)
     parser.add_argument("--random_txt_path", type=str, help="Path to random text file")
     parser.add_argument(
-        "--generation_random_output_path", type=str, help="Path to save generation results"
+        "--generation_random_output_path",
+        type=str,
+        help="Path to save generation results",
     )
     parser.add_argument(
-        "--generation_counterfactual_output_path", type=str, help="Path to save generation results"
+        "--generation_counterfactual_output_path",
+        type=str,
+        help="Path to save generation results",
     )
     parser.add_argument(
         "--max_new_tokens",
@@ -36,12 +40,12 @@ def parse_args():
         help="Maximum number of tokens to generate",
     )
     parser.add_argument("--model_path", type=str)
-    
+
     return parser.parse_args()
 
 
-def get_sequence_pairs(filepath: str, num_samples: int = 1000) -> List[List[str]]:
-    with open(filepath, "r", encoding="utf-8") as f:
+def get_sequence_pairs(filepath: str, num_samples: int = 1000) -> list[list[str]]:
+    with open(filepath, encoding="utf-8") as f:
         lines = [line.strip() for line in f.readlines() if line.strip()]
 
     if len(lines) > num_samples:
@@ -54,12 +58,12 @@ def get_sequence_pairs(filepath: str, num_samples: int = 1000) -> List[List[str]
 def generate_text(
     model: nn.Module,
     tokenizer: PreTrainedTokenizer,
-    prompts: List[str],
+    prompts: list[str],
     prompt_type: str = "bare",
     max_new_tokens: int = 100,
     batch_size: int = 16,
-    max_save_step: int = 1000
-) -> List[str]:
+    max_save_step: int = 1000,
+) -> list[str]:
     prompt_templates = {
         "reflection": "Consider the deeper meaning behind this: {}\nThis text reflects values related to:",
         "analysis": "Analyzing the underlying principles in: {}\nThe core values expressed here are:",
@@ -69,33 +73,35 @@ def generate_text(
         "theme": "What is the main theme in this text: {}\nKey themes include:",
         "topic": "Identify the primary topics discussed in: {}\nMain topics covered are:",
     }
-    
+
     if prompt_type not in prompt_templates:
         raise ValueError(
             f"Invalid prompt_type: {prompt_type}. Available types: {list(prompt_templates.keys())}"
         )
-    
+
     template = prompt_templates[prompt_type]
     formatted_prompts = [template.format(prompt) for prompt in prompts]
-    
+
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-    
-    tokenizer.padding_side = 'left'
+
+    tokenizer.padding_side = "left"
     generated_texts = []
-    
+
     # max_save_stepをバッチサイズで考慮
     effective_max_save_step = max_save_step // batch_size * batch_size
 
-    for i in tqdm(range(0, len(formatted_prompts), batch_size), desc="Generating texts", total=len(formatted_prompts)//batch_size + bool(len(formatted_prompts)%batch_size)):
+    for i in tqdm(
+        range(0, len(formatted_prompts), batch_size),
+        desc="Generating texts",
+        total=len(formatted_prompts) // batch_size
+        + bool(len(formatted_prompts) % batch_size),
+    ):
         if i > effective_max_save_step:
             break
-        batch_prompts = formatted_prompts[i:i + batch_size]
+        batch_prompts = formatted_prompts[i : i + batch_size]
         inputs = tokenizer(
-            batch_prompts, 
-            return_tensors="pt", 
-            padding=True, 
-            truncation=True
+            batch_prompts, return_tensors="pt", padding=True, truncation=True
         ).to(model.device)
 
         with torch.no_grad():
@@ -109,18 +115,21 @@ def generate_text(
             )
 
         decoded_outputs = tokenizer.batch_decode(outputs, skip_special_tokens=True)
-        decoded_inputs = tokenizer.batch_decode(inputs.input_ids, skip_special_tokens=True)
-        
+        decoded_inputs = tokenizer.batch_decode(
+            inputs.input_ids, skip_special_tokens=True
+        )
+
         batch_generated = [
-            output[len(input_text):].strip()
-            for output, input_text in zip(decoded_outputs, decoded_inputs)
+            output[len(input_text) :].strip()
+            for output, input_text in zip(decoded_outputs, decoded_inputs, strict=False)
         ]
         generated_texts.extend(batch_generated)
-    
+
     return generated_texts
 
+
 def save_generation_results(
-    pairs: List[List[str]],
+    pairs: list[list[str]],
     model: nn.Module,
     tokenizer: PreTrainedTokenizer,
     output_path: str,
@@ -132,14 +141,26 @@ def save_generation_results(
 ) -> None:
     concept_texts = [pair[0] for pair in pairs]
     non_concept_texts = [pair[1] for pair in pairs]
-    
+
     generated_concept_texts = generate_text(
-        model, tokenizer, concept_texts, prompt_type, max_new_tokens, batch_size, max_save_step
+        model,
+        tokenizer,
+        concept_texts,
+        prompt_type,
+        max_new_tokens,
+        batch_size,
+        max_save_step,
     )
     generated_non_concept_texts = generate_text(
-        model, tokenizer, non_concept_texts, prompt_type, max_new_tokens, batch_size, max_save_step
+        model,
+        tokenizer,
+        non_concept_texts,
+        prompt_type,
+        max_new_tokens,
+        batch_size,
+        max_save_step,
     )
-    
+
     results = [
         {
             "concept_text": c_text,
@@ -148,8 +169,11 @@ def save_generation_results(
             "generated_text_non_concept": gnc_text,
         }
         for c_text, nc_text, gc_text, gnc_text in zip(
-            concept_texts, non_concept_texts, 
-            generated_concept_texts, generated_non_concept_texts
+            concept_texts,
+            non_concept_texts,
+            generated_concept_texts,
+            generated_non_concept_texts,
+            strict=False,
         )
     ]
 
@@ -158,6 +182,7 @@ def save_generation_results(
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(results, f, ensure_ascii=False, indent=2)
+
 
 if __name__ == "__main__":
     args = parse_args()
@@ -185,12 +210,12 @@ if __name__ == "__main__":
     W, d = g.shape
 
     filenames = []
-    with open(f"{matrices_path}/filenames.txt", "r") as f:
+    with open(f"{matrices_path}/filenames.txt") as f:
         for line in f.readlines():
             filenames.append(line.strip())
 
     concept_names = []
-    with open(f"{matrices_path}/concept_names.txt", "r") as f:
+    with open(f"{matrices_path}/concept_names.txt") as f:
         for line in f.readlines():
             concept_names.append(line.strip())
 
@@ -208,7 +233,7 @@ if __name__ == "__main__":
             prompt_type=args.prompt_type,
             output_path=args.generation_random_output_path,
             max_new_tokens=int(args.max_new_tokens),
-            max_save_step=10
+            max_save_step=10,
         )
 
     # Get embeddings for random pairs
@@ -222,10 +247,13 @@ if __name__ == "__main__":
     count = 0
     for filename in filenames:
         print(f"Processing {filename} ...")
-        concept_sequences, non_concept_sequences, concept_encodings, non_concept_encodings = (
-            lrg.get_counterfactual_pairs(
-                filename, prompt_type=args.prompt_type, num_sample=num_sample
-            )
+        (
+            concept_sequences,
+            non_concept_sequences,
+            concept_encodings,
+            non_concept_encodings,
+        ) = lrg.get_counterfactual_pairs(
+            filename, prompt_type=args.prompt_type, num_sample=num_sample
         )
         inner_product_LOO, diff_data = lrg.inner_product_loo(
             concept_sequences, non_concept_sequences, g
@@ -233,9 +261,11 @@ if __name__ == "__main__":
         inner_product_with_counterfactual_pairs_g_LOO.append(inner_product_LOO)
         count += 1
 
-        ## Generate next tokens 
-        counterfactual_pairs = get_sequence_pairs(filename, num_samples=int(args.num_sample))
-        pattern = r'\[(.*?)\('
+        ## Generate next tokens
+        counterfactual_pairs = get_sequence_pairs(
+            filename, num_samples=int(args.num_sample)
+        )
+        pattern = r"\[(.*?)\("
         match1 = re.search(pattern, filename.split("/")[-1])
         concept_name = match1.group(1)
         if args.generation_random_output_path:
@@ -251,12 +281,14 @@ if __name__ == "__main__":
                 max_save_step=10,
             )
 
-
-
     # Get embeddings and calculate differences for random pairs
     print("Computing embeddings for random pairs...")
-    random_concept_embeddings = lrg.get_embeddings(random_concept_sequences, batch_size=2)
-    random_non_concept_embeddings = lrg.get_embeddings(random_non_concept_sequences, batch_size=2)
+    random_concept_embeddings = lrg.get_embeddings(
+        random_concept_sequences, batch_size=2
+    )
+    random_non_concept_embeddings = lrg.get_embeddings(
+        random_non_concept_sequences, batch_size=2
+    )
     random_pairs_g = random_non_concept_embeddings - random_concept_embeddings
 
     lrg.show_histogram_LOO(

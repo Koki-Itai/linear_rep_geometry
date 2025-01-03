@@ -1,14 +1,14 @@
 """
 概念ペアの文章を受け取り，Unembedding行列と標準化されたUnembedding行列に対して
 """
-import torch
-import numpy as np
-import transformers
-from tqdm import tqdm
-import linear_rep_geometry as lrg
-import os
-import glob
+
 import argparse
+import glob
+import os
+
+import torch
+
+import linear_rep_geometry as lrg
 
 
 def parse_args():
@@ -40,11 +40,7 @@ def parse_args():
         required=True,
         help="Directory to save output matrices",
     )
-    parser.add_argument(
-        "--prompt_type", 
-        type=str,
-        required=True
-    )
+    parser.add_argument("--prompt_type", type=str, required=True)
 
     return parser.parse_args()
 
@@ -64,8 +60,10 @@ def main():
     print("load unembdding vectors ...")
     with torch.inference_mode():
         model = lrg.model
-        gamma = model.lm_head.weight.detach() # Unembedding行列：[語彙サイズ × 隠れ層の次元数]の形状
-        W, d = gamma.shape # W: 語彙サイズ，d: 隠れ層の次元数
+        gamma = (
+            model.lm_head.weight.detach()
+        )  # Unembedding行列：[語彙サイズ × 隠れ層の次元数]の形状
+        W, d = gamma.shape  # W: 語彙サイズ，d: 隠れ層の次元数
         # 行列の中心化(行列の要素を原点に整列)
         gamma_bar = torch.mean(gamma, dim=0)
         centered_gamma = gamma - gamma_bar
@@ -88,7 +86,9 @@ def main():
 
     # compute concept directions
     print("compute concept directions ...")
-    filenames = sorted(glob.glob(os.path.join(args.counterfactual_pair_txt_dir, "*.txt")))
+    filenames = sorted(
+        glob.glob(os.path.join(args.counterfactual_pair_txt_dir, "*.txt"))
+    )
 
     concept_names = []
     for name in filenames:
@@ -96,13 +96,15 @@ def main():
         content = os.path.splitext(base)[0][1:-1]
         parts = content.split(" - ")
         if len(parts) == 2:
-            concept_names.append(r"${} \Rightarrow {}$".format(parts[0], parts[1]))
+            concept_names.append(rf"${parts[0]} \Rightarrow {parts[1]}$")
         else:
             concept_names.append(content)
 
     # 概念方向ベクトルの初期化
-    concept_gamma = torch.zeros(len(filenames), d) # Unembedding空間での概念方向のベクトルを格納するテンソル
-    concept_g = torch.zeros(len(filenames), d) # 標準化空間での概念方向
+    concept_gamma = torch.zeros(
+        len(filenames), d
+    )  # Unembedding空間での概念方向のベクトルを格納するテンソル
+    concept_g = torch.zeros(len(filenames), d)  # 標準化空間での概念方向
 
     count = 0
 
