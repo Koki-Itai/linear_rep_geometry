@@ -133,6 +133,8 @@ def main():
     print("Saved g.")
     torch.save(sqrt_Cov_gamma, f"{args.matrices_save_dir}/sqrt_Cov_gamma.pt")
     print("Saved sqrt_Cov_gamma.")
+
+    # 下記に各概念(counter factual pairs)に対応した概念方向が保存される
     torch.save(concept_gamma, f"{args.matrices_save_dir}/concept_gamma.pt")
     print("Saved concept_gamma.")
     torch.save(concept_g, f"{args.matrices_save_dir}/concept_g.pt")

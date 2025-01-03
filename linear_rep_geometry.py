@@ -16,9 +16,6 @@ np.random.seed(42)
 torch.manual_seed(42)
 torch.cuda.manual_seed_all(42)
 
-device = torch.device("cuda:0")
-torch.cuda.set_device(device)
-
 sns.set_theme(
     context="paper",
     style="white",  # 'whitegrid', 'dark', 'darkgrid', ...
@@ -28,36 +25,34 @@ sns.set_theme(
 )
 
 
-def initialize_model(model_path=None):
+def initialize_model(model_path=None, device_id=0):
     if model_path is None:
         # default
         model_path = "meta-llama/Llama-3.2-3B-Instruct"
 
+    device = torch.device(f"cuda:{device_id}")
     tokenizer = transformers.AutoTokenizer.from_pretrained(model_path, use_fast=False)
-    model = transformers.AutoModelForCausalLM.from_pretrained(
-        model_path,
-        device_map={"": device},
-    )
-    model = model.to(device)
+    torch.cuda.empty_cache()
 
-    return tokenizer, model
+    if model_path == "meta-llama/Llama-3.1-8B-Instruct":
+        model = transformers.AutoModelForCausalLM.from_pretrained(
+            model_path,
+            # device_map={"": device},
+            device_map="auto",
+        )
+    else:
+        model = transformers.AutoModelForCausalLM.from_pretrained(
+            model_path,
+            device_map={"": device}
+        )
+        model = model.to(device)
+
+    return tokenizer, model, device
 
 
-def load_model(model_path=None):
-    global tokenizer, model
-    tokenizer, model = initialize_model(model_path)
-
-
-# tokenizer = None
-# model = None
-
-# MODEL_PATH = "meta-llama/Llama-3.2-3B-Instruct"
-# tokenizer = transformers.AutoTokenizer.from_pretrained(MODEL_PATH, use_fast=False)
-# model = transformers.AutoModelForCausalLM.from_pretrained(
-#     MODEL_PATH,
-#     device_map={"": device},
-# )
-# model = model.to(device)
+def load_model(model_path=None, device_id=0):
+    global tokenizer, model, device
+    tokenizer, model, device = initialize_model(model_path, device_id)
 
 
 ## get indices of counterfactual pairs
@@ -68,6 +63,8 @@ def get_counterfactual_pairs(filename, prompt_type, num_sample=1000):
         "implicit": "Looking at the implicit meaning of: {}\nThe fundamental values shown are:",
         "explicit": "What values are represented in this text: {}\nThe text demonstrates values of:",
         "bare": "{}",
+        "theme": "What is the main theme in this text: {}\nKey themes include:",
+        "topic": "Identify the primary topics discussed in: {}\nMain topics covered are:",
     }
     if prompt_type not in prompt_templates:
         raise ValueError(
@@ -126,18 +123,15 @@ def concept_direction(base_sequences, target_sequences):
     target_embeddings = get_embeddings(target_sequences)
 
     print("Calculating concept direction...")
-    diff_vectors = target_embeddings - base_embeddings
+    # diff_vectors = target_embeddings - base_embeddings
+    diff_vectors = base_embeddings - target_embeddings
     mean_diff = torch.mean(diff_vectors, dim=0)
     concept_vector = mean_diff / torch.norm(mean_diff)
 
     return concept_vector, diff_vectors
 
 
-# model = DataParallel(model)
-
-
 def get_embeddings(text_batch, batch_size=4):
-    """データパラレルによりGPU効率をあげる実装"""
     global model, tokenizer
     if model is None or tokenizer is None:
         load_model()
@@ -385,7 +379,7 @@ def show_histogram_LOO(
     os.makedirs(save_dir, exist_ok=True)
 
     plt.savefig(
-        os.path.join(save_dir, f"appendix_right-skewed_LOO_{fig_name}.png"),
+        os.path.join(save_dir, f"concept_direction_LOO_{fig_name}.png"),
         bbox_inches="tight",
         dpi=300,
     )
@@ -393,48 +387,59 @@ def show_histogram_LOO(
 
 
 ####### Experiment 2: heatmap #######
-def draw_heatmaps(data_matrices, concept_labels, cmap="PiYG"):
+def draw_heatmaps(data_matrices, concept_labels, save_dir="figures", cmap="PiYG", fig_name="three_heatmaps"):
+    num_concepts = len(concept_labels)
+    
     fig = plt.figure(figsize=(14, 8.5))
     gs = gridspec.GridSpec(2, 3, wspace=0.2)
-
+    
+    # Calculate global min and max for consistent color scaling
     vmin = min([data.min() for data in data_matrices])
     vmax = max([data.max() for data in data_matrices])
-
-    ticks = list(range(2, 27, 3))
+    
+    # Calculate x-axis ticks dynamically
+    num_xticks = min(9, num_concepts)  # Limit number of ticks for readability
+    ticks = list(range(0, num_concepts, max(1, num_concepts // num_xticks)))
     labels = [str(i + 1) for i in ticks]
-
-    ytick = list(range(27))
-    ims = []
-
+    
+    # Create y-axis ticks
+    yticks = list(range(num_concepts))
+    
+    # Create the three subplots
     ax_left = plt.subplot(gs[0:2, 0:2])
-    im = ax_left.imshow(data_matrices[0], cmap=cmap)
-    ims.append(im)
+    im = ax_left.imshow(data_matrices[0], cmap=cmap, vmin=vmin, vmax=vmax)
     ax_left.set_xticks(ticks)
     ax_left.set_xticklabels(labels)
-    ax_left.set_yticks(ytick)
+    ax_left.set_yticks(yticks)
     ax_left.set_yticklabels(concept_labels)
     ax_left.set_title(r"$M = \mathrm{Cov}(\gamma)^{-1}$")
-
+    
     ax_top_right = plt.subplot(gs[0, 2])
-    im = ax_top_right.imshow(data_matrices[1], cmap=cmap)
-    ims.append(im)
+    im = ax_top_right.imshow(data_matrices[1], cmap=cmap, vmin=vmin, vmax=vmax)
     ax_top_right.set_xticks([])
     ax_top_right.set_yticks([])
     ax_top_right.set_title(r"$M = I_d$")
-
+    
     ax_bottom_right = plt.subplot(gs[1, 2])
-    im = ax_bottom_right.imshow(data_matrices[2], cmap=cmap)
-    ims.append(im)
+    im = ax_bottom_right.imshow(data_matrices[2], cmap=cmap, vmin=vmin, vmax=vmax)
     ax_bottom_right.set_xticks([])
     ax_bottom_right.set_yticks([])
     ax_bottom_right.set_title(r"Random $M$")
-
+    
+    # Add colorbar
     divider = make_axes_locatable(ax_left)
     cax = divider.append_axes("right", size="5%", pad=0.2)
-    cbar = plt.colorbar(ims[-1], cax=cax, orientation="vertical")
-
+    cbar = plt.colorbar(im, cax=cax, orientation="vertical")
+    
     plt.tight_layout()
-    plt.savefig(f"figures/three_heatmaps.png", bbox_inches="tight")
+    
+    # Create save directory if it doesn't exist
+    os.makedirs(save_dir, exist_ok=True)
+    
+    # Save the figure
+    save_path = os.path.join(save_dir, f"{fig_name}.png")
+    print(f"{save_path=}")
+    plt.savefig(save_path, bbox_inches="tight", dpi=300)
     plt.show()
 
 
