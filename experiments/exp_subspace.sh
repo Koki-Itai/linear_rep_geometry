@@ -4,16 +4,16 @@
 bash /home/itai/research/linear_rep_geometry/setup.sh
 
 # Config
-MODEL_PATHS=("meta-llama/Llama-3.2-3B-Instruct" "meta-llama/Llama-3.1-8B-Instruct" "meta-llama/Llama-2-7b-hf")
+MODEL_PATHS=("meta-llama/Llama-3.1-8B-Instruct" "meta-llama/Llama-2-7b-hf" "meta-llama/Llama-3.2-3B-Instruct" )
 DATASET_TYPES=("valuenet")
 CONCEPT_DIRECTIONS=("pos2neg" "pos2neutral")
 NORM_TYPES=("base" "norm_sentence_structure")
-PROMPT_TYPES=("bare" "reflection" "analysis" "implicit" "explicit")
+PROMPT_TYPES=("analysis" "topic" "bare" "theme" "reflection" "implicit" "explicit" )
 
-LOG_DIR="experiment_logs"
-mkdir -p $LOG_DIR
+# LOG_DIR="experiment_logs"
+# mkdir -p $LOG_DIR
 
-TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+# TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 
 run_experiment() {
     local model_path=$1
@@ -22,7 +22,7 @@ run_experiment() {
     local norm_type=$4
     local prompt_type=$5
 
-    local log_file="${LOGDIR}/experiment${TIMESTAMP}_${modelpath##*/}${datasettype}${conceptdirection}${normtype}${prompt_type}.log"
+    # local log_file="${LOGDIR}/experiment${TIMESTAMP}_${modelpath##*/}${datasettype}${conceptdirection}${normtype}${prompt_type}.log"
 
     echo "* ===== Running experiment with configuration: ===== "
     echo "Model: $model_path"
@@ -30,7 +30,7 @@ run_experiment() {
     echo "Concept Direction: $concept_direction"
     echo "Norm Type: $norm_type"
     echo "Prompt Type: $prompt_type"
-    echo "Log file: $log_file"
+    # echo "Log file: $log_file"
     echo " ================================================= *"
 
     export MODEL_PATH=$model_path
@@ -39,9 +39,9 @@ run_experiment() {
     export NORM_TYPE=$norm_type
     export PROMPT_TYPE=$prompt_type
 
-    ./1_subspace.sh 2>&1 | tee "$log_file"
+    ./1_subspace.sh
 
-    echo "Experiment completed. Log saved to: $log_file"
+    echo "Experiment completed. "
     echo "----------------------------------------"
 }
 
@@ -63,4 +63,4 @@ for model_path in "${MODEL_PATHS[@]}"; do
 done
 
 echo "All experiments completed!"
-echo "Logs are available in: $LOG_DIR"
+# echo "Logs are available in: $LOG_DIR"
